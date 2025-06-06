@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataValue {
     Int(i64),
     Float(f64),
@@ -263,5 +263,44 @@ impl DataFrame {
         });
 
         DataFrame::from_rows(self.columns.clone(), self.column_types.clone(), sorted_rows)
+    }
+
+    pub fn apply(&self, column: &str, func: &dyn Fn(&DataValue) -> DataValue) -> DataFrame {
+        let col_idx = match self.columns.iter().position(|c| c == column) {
+            Some(idx) => idx,
+            None => return DataFrame::from_rows(self.columns.clone(), self.column_types.clone(), vec![]), // Return empty if column not found
+        };
+
+        let mut new_data = self.data.clone();
+        for row in &mut new_data {
+            if let Some(value) = row.get_mut(col_idx) {
+                *value = func(value);
+            }
+        }
+
+        DataFrame::from_rows(self.columns.clone(), self.column_types.clone(), new_data)
+    }
+
+    pub fn get_value(&self, row: usize, col: &str) -> Option<&DataValue> {
+        let col_idx = self.columns.iter().position(|c| c == col)?;
+        self.data.get(row).and_then(|r| r.get(col_idx))
+    }
+
+    pub fn get_values(&self, col: &str) -> Option<Vec<&DataValue>> {
+        let col_idx = self.columns.iter().position(|c| c == col)?;
+        Some(self.data.iter().filter_map(|r| r.get(col_idx)).collect())
+    }
+
+    pub fn get_unique_values(&self, col: &str) -> Option<Vec<DataValue>> {
+        let col_idx = self.columns.iter().position(|c| c == col)?;
+        let mut unique_values = Vec::new();
+        for row in &self.data {
+            if let Some(value) = row.get(col_idx) {
+                if !unique_values.contains(value) {
+                    unique_values.push(value.clone());
+                }
+            }
+        }
+        Some(unique_values)
     }
 }
